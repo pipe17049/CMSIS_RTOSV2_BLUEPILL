@@ -333,7 +333,7 @@ void task1toggleLED13(void *argument)
   /* USER CODE BEGIN 5 */
 	/* Infinite loop */
 	lcd_init();
-	lcd_send_string("Hola' 'mundo");
+	lcd_send_string("Hola' 'putos");
 	lcd_send_cmd(0xc0);
 	char arreglo[10]= "Pls' 'Steal";
 	for(int i=0; i<11;i++){
