@@ -42,6 +42,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
+I2C_HandleTypeDef hi2c2;
 
 UART_HandleTypeDef huart1;
 
@@ -52,11 +53,11 @@ const osThreadAttr_t task1_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 128 * 4
 };
-/* Definitions for task02 */
-osThreadId_t task02Handle;
-const osThreadAttr_t task02_attributes = {
-  .name = "task02",
-  .priority = (osPriority_t) osPriorityBelowNormal,
+/* Definitions for myTask02 */
+osThreadId_t myTask02Handle;
+const osThreadAttr_t myTask02_attributes = {
+  .name = "myTask02",
+  .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 128 * 4
 };
 /* Definitions for myTimer01 */
@@ -65,8 +66,9 @@ const osTimerAttr_t myTimer01_attributes = {
   .name = "myTimer01"
 };
 /* USER CODE BEGIN PV */
-int bandera1=1;
-int bandera2=1;
+
+uint32_t ReceiveCount;
+uint8_t RxBuffer[16];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -74,8 +76,9 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_I2C1_Init(void);
-void task1toggleLED13(void *argument);
-void taskblinkled(void *argument);
+static void MX_I2C2_Init(void);
+void I2CLCD(void *argument);
+void I2C_Wifi(void *argument);
 void Callback01(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -117,6 +120,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_I2C1_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -146,10 +150,10 @@ int main(void)
 
   /* Create the thread(s) */
   /* creation of task1 */
-  task1Handle = osThreadNew(task1toggleLED13, NULL, &task1_attributes);
+  task1Handle = osThreadNew(I2CLCD, NULL, &task1_attributes);
 
-  /* creation of task02 */
-  task02Handle = osThreadNew(taskblinkled, NULL, &task02_attributes);
+  /* creation of myTask02 */
+  myTask02Handle = osThreadNew(I2C_Wifi, NULL, &myTask02_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -161,7 +165,6 @@ int main(void)
   osTimerStart(myTimer01Handle, 500);
   /* Start scheduler */
   osKernelStart();
-
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
@@ -248,6 +251,51 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C2_Init(void)
+{
+
+  /* USER CODE BEGIN I2C2_Init 0 */
+
+  /* USER CODE END I2C2_Init 0 */
+
+  /* USER CODE BEGIN I2C2_Init 1 */
+
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.ClockSpeed = 100000;
+  hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c2.Init.OwnAddress1 = 4;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C2_Init 2 */
+  /* The board receives the message and sends it back */
+
+  /*##-2- Put I2C peripheral in reception process ############################*/
+
+
+
+
+  /*##-4- Start the transmission process #####################################*/
+  /* While the I2C in reception process, user can transmit data through
+     "aTxBuffer" buffer */
+
+
+  /* USER CODE END I2C2_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -292,14 +340,14 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8|GPIO_PIN_9, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5|GPIO_PIN_8|GPIO_PIN_9, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
@@ -308,8 +356,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB8 PB9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9;
+  /*Configure GPIO pins : PB5 PB8 PB9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_8|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -321,14 +369,14 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_task1toggleLED13 */
+/* USER CODE BEGIN Header_I2CLCD */
 /**
- * @brief  Function implementing the task1 thread.
- * @param  argument: Not used
- * @retval None
- */
-/* USER CODE END Header_task1toggleLED13 */
-void task1toggleLED13(void *argument)
+  * @brief  Function implementing the task1 thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_I2CLCD */
+void I2CLCD(void *argument)
 {
   /* USER CODE BEGIN 5 */
 	/* Infinite loop */
@@ -342,31 +390,45 @@ void task1toggleLED13(void *argument)
 
 	for(;;)
 	{
-
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_9);
 		osDelay(1000);
-		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+
+
 	}
   /* USER CODE END 5 */
 }
 
-/* USER CODE BEGIN Header_taskblinkled */
+/* USER CODE BEGIN Header_I2C_Wifi */
 /**
- * @brief Function implementing the task02 thread.
- * @param argument: Not used
- * @retval None
- */
-/* USER CODE END Header_taskblinkled */
-void taskblinkled(void *argument)
+* @brief Function implementing the myTask02 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_I2C_Wifi */
+void I2C_Wifi(void *argument)
 {
-  /* USER CODE BEGIN taskblinkled */
-	/* Infinite loop */
-	for(;;)
-	{
-		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_9);
-		osDelay(2000);
+  /* USER CODE BEGIN I2C_Wifi */
+  /* Infinite loop */
+  for(;;)
+  {
+	  if(HAL_I2C_Slave_Receive_IT(&hi2c2, (uint8_t *)RxBuffer, 16) != HAL_OK)
+	    {
+	      /* Transfer error in reception process */
+	      Error_Handler();
+	    }
 
-	}
-  /* USER CODE END taskblinkled */
+	    /*##-3- Wait for the end of the transfer ###################################*/
+	    /*  Before starting a new communication transfer, you need to check the current
+	        state of the peripheral; if it’s busy you need to wait for the end of current
+	        transfer before starting a new one.
+	        For simplicity reasons, this example is just waiting till the end of the
+	        transfer, but application may perform other tasks while transfer operation
+	        is ongoing. */
+	    while (HAL_I2C_GetState(&hi2c2) != HAL_I2C_STATE_READY)
+	    {
+	    }
+  }
+  /* USER CODE END I2C_Wifi */
 }
 
 /* Callback01 function */
@@ -386,6 +448,19 @@ void Callback01(void *argument)
   * @param  htim : TIM handle
   * @retval None
   */
+void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c2)
+{
+  /* Turn LED6 on: Transfer in reception process is correct */
+	HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_5);
+	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+	lcd_send_cmd(0xc0);
+
+	for(int i=0; i<16;i++){
+		lcd_send_data(RxBuffer[i]);
+	}
+
+
+}
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
